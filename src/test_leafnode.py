@@ -8,15 +8,18 @@ class TestLeafNode(unittest.TestCase):
         node = LeafNode("p", "Hello, world!")
         self.assertEqual(node.to_html(), "<p>Hello, world!</p>")
 
+
     def test_leaf_to_html_a(self):
         node = LeafNode("a", "Click me!", {"href": "https://www.google.com"})
         self.assertEqual(node.to_html(), "<a href=\"https://www.google.com\">Click me!</a>")
+
 
     def test_no_value_given(self):
         try:
             node = LeafNode("p")
         except Exception as e:
             self.assertEqual(str(e), "LeafNode.__init__() missing 1 required positional argument: 'value'")
+
 
     def test_value_eq_none(self):
         node = LeafNode("p", None)
@@ -25,11 +28,13 @@ class TestLeafNode(unittest.TestCase):
         except Exception as e:
             self.assertEqual(isinstance(e, ValueError), True)
 
+
     def test_no_tag_given(self):
         try:
             node = LeafNode(value="no tag given")
         except Exception as e:
             self.assertEqual(str(e), "LeafNode.__init__() missing 1 required positional argument: 'tag'")
+
 
     def test_tag_eq_none(self):
         node = LeafNode(None, "tag is none")
