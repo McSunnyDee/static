@@ -4,7 +4,10 @@ from text2html import (
     text_node_to_html_node,
     split_nodes_delimiter,
     extract_markdown_links,
-    extract_markdown_images
+    extract_markdown_images,
+    split_nodes_image,
+    split_nodes_link,
+    text_to_textnodes
 )
 from textnode import TextNode, TextType
 
@@ -87,7 +90,7 @@ class TestText2LeafNode(unittest.TestCase):
                 TextNode("code block", TextType.CODE),
                 TextNode(" word and another ", TextType.TEXT),
                 TextNode("code block, too", TextType.CODE),
-                TextNode("", TextType.TEXT),
+                #TextNode("", TextType.TEXT),
             ]
         )
 
@@ -96,13 +99,13 @@ class TestText2LeafNode(unittest.TestCase):
         new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
         self.assertEqual(new_nodes, 
             [
-                TextNode("", TextType.TEXT),
+                #TextNode("", TextType.TEXT),
                 TextNode("This", TextType.CODE),
                 TextNode(" is text with a ", TextType.TEXT),
                 TextNode("code block", TextType.CODE),
                 TextNode(" word and another ", TextType.TEXT),
                 TextNode("code block, too", TextType.CODE),
-                TextNode("", TextType.TEXT),
+                #TextNode("", TextType.TEXT),
             ]
         )
 
@@ -113,7 +116,7 @@ class TestText2LeafNode(unittest.TestCase):
         new_nodes = split_nodes_delimiter(new_nodes, "_", TextType.ITALIC)
         self.assertEqual(new_nodes, 
             [
-                TextNode("", TextType.TEXT),
+                #TextNode("", TextType.TEXT),
                 TextNode("This", TextType.CODE),
                 TextNode(" is ", TextType.TEXT),
                 TextNode("text", TextType.BOLD),
@@ -123,7 +126,7 @@ class TestText2LeafNode(unittest.TestCase):
                 TextNode("another", TextType.ITALIC),
                 TextNode(" ", TextType.TEXT),
                 TextNode("code block, too", TextType.CODE),
-                TextNode("", TextType.TEXT),
+                #TextNode("", TextType.TEXT),
             ]
         )
     
@@ -134,7 +137,7 @@ class TestText2LeafNode(unittest.TestCase):
         new_nodes = split_nodes_delimiter(new_nodes, "**", TextType.BOLD)
         self.assertEqual(new_nodes, 
             [
-                TextNode("", TextType.TEXT),
+                #TextNode("", TextType.TEXT),
                 TextNode("This", TextType.CODE),
                 TextNode(" is ", TextType.TEXT),
                 TextNode("text", TextType.BOLD),
@@ -144,7 +147,7 @@ class TestText2LeafNode(unittest.TestCase):
                 TextNode("another", TextType.ITALIC),
                 TextNode(" ", TextType.TEXT),
                 TextNode("code block, too", TextType.CODE),
-                TextNode("", TextType.TEXT),
+                #TextNode("", TextType.TEXT),
             ]
         )
 
@@ -175,6 +178,136 @@ class TestText2LeafNode(unittest.TestCase):
             "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
         )
         self.assertNotEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
+
+
+    def test_split_images(self):
+        node = TextNode(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("This is text with an ", TextType.TEXT),
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+                TextNode(" and another ", TextType.TEXT),
+                TextNode("second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"),
+            ],
+            new_nodes,
+        )
+
+    
+    def test_starts_with_image(self):
+        node = TextNode(
+            "![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+                TextNode(" and another ", TextType.TEXT),
+                TextNode("second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"),
+            ],
+            new_nodes,
+        )
+
+
+    def test_ends_with_text(self):
+        node = TextNode(
+            "![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png) and that's it!",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+                TextNode(" and another ", TextType.TEXT),
+                TextNode("second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"),
+                TextNode(" and that's it!", TextType.TEXT),
+            ],
+            new_nodes,
+        )
+
+
+    def test_one_image(self):
+        node = TextNode(
+            "![image](https://i.imgur.com/zjjcJKZ.png)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+            ],
+            new_nodes,
+        )
+
+
+    def test_no_images(self):
+        node = TextNode(
+            "This is text without an image",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("This is text without an image", TextType.TEXT),
+            ],
+            new_nodes,
+        )
+
+    
+    def test_link_is_not_image(self):
+        node = TextNode(
+            "This is text with an ![image](https://i.imgur.com/3elNhQu.png) and a [hyperlink](https://google.com) and that's it!",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("This is text with an ", TextType.TEXT),
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"),
+                TextNode(" and a [hyperlink](https://google.com) and that's it!", TextType.TEXT),
+            ],
+            new_nodes,
+        )
+
+
+    def test_image_is_not_link(self):
+        node = TextNode(
+            "This is text with a [hyperlink](https://google.com) and an ![image](https://i.imgur.com/3elNhQu.png)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_link([node])
+        self.assertListEqual(
+            [
+                TextNode("This is text with a ", TextType.TEXT),
+                TextNode("hyperlink", TextType.LINK, "https://google.com"),
+                TextNode(" and an ![image](https://i.imgur.com/3elNhQu.png)", TextType.TEXT),
+            ],
+            new_nodes,
+        )
+
+
+    def test_all_of_them_at_the_same_time(self):
+        nodes = text_to_textnodes(r"This is **text** with an _italic_ word and a `code block` and an ![obi wan image](https://i.imgur.com/fJRm4Vk.jpeg) and a [link](https://boot.dev)")
+        self.assertListEqual(
+            [
+                TextNode("This is ", TextType.TEXT),
+                TextNode("text", TextType.BOLD),
+                TextNode(" with an ", TextType.TEXT),
+                TextNode("italic", TextType.ITALIC),
+                TextNode(" word and a ", TextType.TEXT),
+                TextNode("code block", TextType.CODE),
+                TextNode(" and an ", TextType.TEXT),
+                TextNode("obi wan image", TextType.IMAGE, "https://i.imgur.com/fJRm4Vk.jpeg"),
+                TextNode(" and a ", TextType.TEXT),
+                TextNode("link", TextType.LINK, "https://boot.dev"),
+            ],
+            nodes,
+        )
+
 
 
 if __name__ == "__main__":
