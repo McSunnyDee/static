@@ -8,9 +8,10 @@ from text2html import (
     split_nodes_image,
     split_nodes_link,
     text_to_textnodes,
-    markdown_to_blocks
+    markdown_to_blocks,
+    block_to_block_type
 )
-from textnode import TextNode, TextType
+from textnode import TextNode, TextType, BlockType
 
 
 class TestText2LeafNode(unittest.TestCase):
@@ -331,6 +332,111 @@ This is the same paragraph on a new line
                 "- This is a list\n- with items",
             ],
         )
+
+
+    def test_block_to_blocktype_heading(self):
+        test_block = [
+            "# This is a Header",
+            "## This is a Header",
+            "### This is a Header",
+            "#### This is a Header",
+            "##### This is a Header",
+            "###### This is a Header",
+            "####### This is a Header",
+            "#This is a Header",
+            "##This is a Header",
+            "###This is a Header",
+            "####This is a Header",
+            "#####This is a Header",
+            "######This is a Header",
+            "#######This is a Header",
+            "This is a Header",
+            "#"
+            "# "
+            
+        ]
+        results = [
+            BlockType.HEADING,
+            BlockType.HEADING,
+            BlockType.HEADING,
+            BlockType.HEADING,
+            BlockType.HEADING,
+            BlockType.HEADING,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+        ]
+        self.assertListEqual(list(map(block_to_block_type, test_block)), results)
+    
+    def test_block_to_blocktype_code(self):
+        test_block = [
+            "```This is Code```",
+            "``` This is Code ```",
+            "`` `This is Code```",
+            "```This is Code` ``",
+            "``This is Code``",
+            "```This is Code``",
+            "This is Code",
+            "``````",
+            "``` ```",
+            "```` ``",
+        ]
+        results = [
+            BlockType.CODE,
+            BlockType.CODE,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.PARAGRAPH,
+            BlockType.CODE,
+            BlockType.CODE,
+            BlockType.PARAGRAPH,
+        ]
+        self.assertListEqual(list(map(block_to_block_type, test_block)), results)
+    
+
+    def test_block_to_blocktype_quote(self):
+        self.assertEqual(block_to_block_type(">one\n>two\n>three"), BlockType.QUOTE)
+        self.assertEqual(block_to_block_type(">one"), BlockType.QUOTE)
+        self.assertEqual(block_to_block_type(">"), BlockType.QUOTE)
+        self.assertEqual(block_to_block_type(">one\n>two\nthree"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type(">one\ntwo\n>three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("one\n>two\n>three"), BlockType.PARAGRAPH)
+
+    
+    def test_block_to_blocktype_unordered_list(self):
+        self.assertEqual(block_to_block_type("- one\n- two\n- three"), BlockType.UNORDERED_LIST)
+        self.assertEqual(block_to_block_type("- one"), BlockType.UNORDERED_LIST)
+        self.assertEqual(block_to_block_type("- "), BlockType.UNORDERED_LIST)
+        self.assertEqual(block_to_block_type("- one\n- two\nthree"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("- one\n- two\n three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("- one\ntwo\n- three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("one\n- two\n- three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("-one\n- two\n- three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("- one\n- two\n-three"), BlockType.PARAGRAPH)
+
+
+    def test_block_to_blocktype_ordered_list(self):
+        self.assertEqual(block_to_block_type("1. one\n2. two\n3. three"), BlockType.ORDERED_LIST)
+        self.assertEqual(block_to_block_type("1. one"), BlockType.ORDERED_LIST)
+        self.assertEqual(block_to_block_type("1. "), BlockType.ORDERED_LIST)
+        self.assertEqual(block_to_block_type("1."), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("1. 2. 3."), BlockType.ORDERED_LIST)
+        self.assertEqual(block_to_block_type("1. one\n2. two\n3 three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("1. one\n2. two\n3.. three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("1. one\ntwo\n2. three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("one\n1. two\n2. three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("1.one\n2.two\n3.three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("1. one\n3. two\n2. three"), BlockType.PARAGRAPH)
+        self.assertEqual(block_to_block_type("0. one\n1. two\n2. three"), BlockType.PARAGRAPH)
 
 
 if __name__ == "__main__":

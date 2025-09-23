@@ -1,6 +1,6 @@
 import re
 
-from textnode import TextType, TextNode
+from textnode import TextType, TextNode, BlockType
 from leafnode import LeafNode
 
 def text_node_to_html_node(text_node):
@@ -123,3 +123,18 @@ def markdown_to_blocks(markdown):
         if block != "":
             md.append(block)
     return md
+
+
+def block_to_block_type(block):
+    if re.findall(r"^\#{1,6} .+", block):
+        return BlockType.HEADING
+    elif re.findall(r"^\`\`\`.*\`\`\`$", block):
+        return BlockType.CODE
+    elif len(list(filter(lambda x: re.findall(r"^\>.*", x), (line for line in block.split("\n"))))) == len(block.split("\n")):
+        return BlockType.QUOTE
+    elif len(list(filter(lambda x: re.findall(r"^\- .*", x), (line for line in block.split("\n"))))) == len(block.split("\n")):
+        return BlockType.UNORDERED_LIST
+    elif len(list(filter(lambda args: re.findall(fr"^{args[0]+1}\. .*", args[1]), ((number, line) for number, line in enumerate(block.split("\n")))))) == len(block.split("\n")):
+        return BlockType.ORDERED_LIST
+    else:
+        return BlockType.PARAGRAPH
