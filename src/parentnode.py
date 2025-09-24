@@ -16,7 +16,10 @@ class ParentNode(HTMLNode):
         string_of_children = ""
         for child in children:
             if not child.children:
-                string_of_children += f'<{child.tag}{child.props_to_html()}>{child.value}</{child.tag}>'
+                if not child.tag:
+                    string_of_children += str(child.value)
+                else:
+                    string_of_children += f'<{child.tag}{child.props_to_html()}>{child.value}</{child.tag}>'
             else:
                 string_of_children += f'{child.recursive(child.children)}'
         return f'<{self.tag}{self.props_to_html()}>{string_of_children}</{self.tag}>'

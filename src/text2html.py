@@ -2,6 +2,8 @@ import re
 
 from textnode import TextType, TextNode, BlockType
 from leafnode import LeafNode
+from parentnode import ParentNode
+from htmlnode import HTMLNode
 
 def text_node_to_html_node(text_node):
     match text_node.text_type:
@@ -126,9 +128,11 @@ def markdown_to_blocks(markdown):
 
 
 def block_to_block_type(block):
+    #should've used maps instead of filters and possibly re.match instead of re.findall
     if re.findall(r"^\#{1,6} .+", block):
         return BlockType.HEADING
-    elif re.findall(r"^\`\`\`.*\`\`\`$", block):
+    #elif re.match(r"^\`\`\`.*", block) and re.match(r".*\`\`\`$", block):
+    elif len(list(filter(lambda x: re.findall(r"^\`\`\`.*", x), (line for line in block.split("\n"))))) > 0 and len(list(filter(lambda x: re.findall(r".*\`\`\`$", x), (line for line in block.split("\n"))))) > 0:
         return BlockType.CODE
     elif len(list(filter(lambda x: re.findall(r"^\>.*", x), (line for line in block.split("\n"))))) == len(block.split("\n")):
         return BlockType.QUOTE
@@ -138,3 +142,57 @@ def block_to_block_type(block):
         return BlockType.ORDERED_LIST
     else:
         return BlockType.PARAGRAPH
+
+
+def prepare_textnode(text):
+    return text_to_textnodes(r" ".join(text.split("\n")))
+
+
+def text_to_children(text):
+    htmlnodes = []
+    for textnode in prepare_textnode(text):
+        htmlnodes.append(text_node_to_html_node(textnode))
+    return htmlnodes
+
+
+def header_size(block):
+    size = 0
+    for char in block:
+        if char == "#":
+            size = size + 1
+        else:
+            return size
+        
+
+def resolve_lists(block):
+    nodes_list = []
+    for list_entry in text_to_children(block):
+        nodes_list.append(LeafNode("li", list_entry))
+    
+    return nodes_list
+
+
+def markdown_to_html_node(markdown):
+    markdown_blocks = markdown_to_blocks(markdown)
+    parent_html_node = ParentNode("div", [])
+    for block in markdown_blocks:
+        match block_to_block_type(block):
+            case BlockType.HEADING:
+                size = header_size(block)
+                parent_html_node.children.append(ParentNode(f"h{size}", text_to_children(block)))
+            case BlockType.CODE:
+                parent_html_node.children.append(
+                    ParentNode("pre", [text_node_to_html_node(TextNode(block.replace("```\n", "").replace("```", ""), TextType.CODE))])
+                )
+            case BlockType.QUOTE:
+                parent_html_node.children.append(ParentNode("blockquote", text_to_children(block)))
+            case BlockType.UNORDERED_LIST:
+                parent_html_node.children.append(ParentNode("ul", resolve_lists(block)))
+            case BlockType.ORDERED_LIST:
+                parent_html_node.children.append(ParentNode("ol", resolve_lists(block)))
+            case BlockType.PARAGRAPH:
+                parent_html_node.children.append(ParentNode("p", text_to_children(block)))
+            case _:
+                raise Exception("Invalid BlockType")
+    
+    return parent_html_node
