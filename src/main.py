@@ -1,6 +1,8 @@
 import os
 import shutil
 
+from text2html import generate_page, generate_pages_recursive
+
 
 def copy_files_recursively(source, destination):
     if os.path.exists(source) and not os.path.isfile(source):
@@ -16,10 +18,11 @@ def copy_files_recursively(source, destination):
 def main():
     if os.path.exists("public"):
         shutil.rmtree("public")
-        os.mkdir("public")
-    else: os.mkdir("public")
-
+   
     copy_files_recursively("static", "public")
+
+    #generate_page("content/index.md", "template.html", "public/index.html")
+    generate_pages_recursive("content", "template.html", "public")
 
 
 main()

@@ -5,21 +5,11 @@ class ParentNode(HTMLNode):
         super().__init__(tag, None, children, props)
 
     def to_html(self):
-        if not self.tag:
-            raise ValueError("Missing Tag")
-        if not self.children:
-            raise ValueError("Missing Children")
-    
-        return self.recursive(self.children)
-    
-    def recursive(self, children):
-        string_of_children = ""
-        for child in children:
-            if not child.children:
-                if not child.tag:
-                    string_of_children += str(child.value)
-                else:
-                    string_of_children += f'<{child.tag}{child.props_to_html()}>{child.value}</{child.tag}>'
-            else:
-                string_of_children += f'{child.recursive(child.children)}'
-        return f'<{self.tag}{self.props_to_html()}>{string_of_children}</{self.tag}>'
+        if self.tag is None:
+            raise ValueError("invalid HTML: no tag")
+        if self.children is None:
+            raise ValueError("invalid HTML: no children")
+        children_html = ""
+        for child in self.children:
+            children_html += child.to_html()
+        return f"<{self.tag}{self.props_to_html()}>{children_html}</{self.tag}>"

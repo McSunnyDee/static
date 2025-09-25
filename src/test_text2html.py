@@ -1,6 +1,7 @@
 import unittest
 
 from text2html import (
+    extract_title,
     text_node_to_html_node,
     split_nodes_delimiter,
     extract_markdown_links,
@@ -471,6 +472,40 @@ the **same** even with inline stuff
             html,
             "<div><pre><code>This is text that _should_ remain\nthe **same** even with inline stuff\n</code></pre></div>",
         )
+
+
+    def test_extract_title(self):
+        test_block = [
+            "# This is a Header",
+            "## This is a Header",
+            "### This is a Header",
+            "#### This is a Header",
+            "##### This is a Header",
+            "###### This is a Header",
+        ]
+        
+        results = [
+            "This is a Header",
+            "This is a Header",
+            "This is a Header",
+            "This is a Header",
+            "This is a Header",
+            "This is a Header",
+        ]
+
+        self.assertListEqual(list(map(extract_title, test_block)), results)
+        self.assertRaises(Exception, extract_title, "####### This is a Header")
+        self.assertRaises(Exception, extract_title, "#This is a Header")
+        self.assertRaises(Exception, extract_title, "##This is a Header")
+        self.assertRaises(Exception, extract_title, "###This is a Header")
+        self.assertRaises(Exception, extract_title, "####This is a Header")
+        self.assertRaises(Exception, extract_title, "#####This is a Header")
+        self.assertRaises(Exception, extract_title, "######This is a Header")
+        self.assertRaises(Exception, extract_title, "#######This is a Header")
+        self.assertRaises(Exception, extract_title, "This is a Header")
+        self.assertRaises(Exception, extract_title, "#")
+        self.assertRaises(Exception, extract_title, "# ")
+
 
 if __name__ == "__main__":
     unittest.main()

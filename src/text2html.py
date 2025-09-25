@@ -1,3 +1,5 @@
+import os
+import pathlib
 import re
 
 from textnode import TextType, TextNode, BlockType
@@ -128,10 +130,8 @@ def markdown_to_blocks(markdown):
 
 
 def block_to_block_type(block):
-    #should've used maps instead of filters and possibly re.match instead of re.findall
     if re.findall(r"^\#{1,6} .+", block):
         return BlockType.HEADING
-    #elif re.match(r"^\`\`\`.*", block) and re.match(r".*\`\`\`$", block):
     elif len(list(filter(lambda x: re.findall(r"^\`\`\`.*", x), (line for line in block.split("\n"))))) > 0 and len(list(filter(lambda x: re.findall(r".*\`\`\`$", x), (line for line in block.split("\n"))))) > 0:
         return BlockType.CODE
     elif len(list(filter(lambda x: re.findall(r"^\>.*", x), (line for line in block.split("\n"))))) == len(block.split("\n")):
@@ -142,15 +142,11 @@ def block_to_block_type(block):
         return BlockType.ORDERED_LIST
     else:
         return BlockType.PARAGRAPH
-
-
-def prepare_textnode(text):
-    return text_to_textnodes(r" ".join(text.split("\n")))
-
+    
 
 def text_to_children(text):
     htmlnodes = []
-    for textnode in prepare_textnode(text):
+    for textnode in text_to_textnodes(" ".join(text.split("\n"))):
         htmlnodes.append(text_node_to_html_node(textnode))
     return htmlnodes
 
@@ -164,10 +160,28 @@ def header_size(block):
             return size
         
 
-def resolve_lists(block):
+def resolve_blockquote(block):
+    new_lines = []
+    for quote_line in block.split("\n"):
+        new_lines.append(quote_line[1:].strip())
+
+    return text_to_children("\n".join(new_lines))
+
+
+def resolve_unordered_lists(block):
     nodes_list = []
-    for list_entry in text_to_children(block):
-        nodes_list.append(LeafNode("li", list_entry))
+    for list_entry in block.split("\n"):
+        entry = text_to_children(list_entry[2:])
+        nodes_list.append(ParentNode("li", entry))
+
+    return nodes_list
+
+
+def resolve_ordered_lists(block):
+    nodes_list = []
+    for list_entry in block.split("\n"):
+        entry = text_to_children(list_entry[3:])
+        nodes_list.append(ParentNode("li", entry))
     
     return nodes_list
 
@@ -179,20 +193,69 @@ def markdown_to_html_node(markdown):
         match block_to_block_type(block):
             case BlockType.HEADING:
                 size = header_size(block)
-                parent_html_node.children.append(ParentNode(f"h{size}", text_to_children(block)))
+                parent_html_node.children.append(ParentNode(f"h{size}", text_to_children(block[size+1:])))
             case BlockType.CODE:
                 parent_html_node.children.append(
                     ParentNode("pre", [text_node_to_html_node(TextNode(block.replace("```\n", "").replace("```", ""), TextType.CODE))])
                 )
             case BlockType.QUOTE:
-                parent_html_node.children.append(ParentNode("blockquote", text_to_children(block)))
+                parent_html_node.children.append(ParentNode("blockquote", resolve_blockquote(block)))
             case BlockType.UNORDERED_LIST:
-                parent_html_node.children.append(ParentNode("ul", resolve_lists(block)))
+                parent_html_node.children.append(ParentNode("ul", resolve_unordered_lists(block)))
             case BlockType.ORDERED_LIST:
-                parent_html_node.children.append(ParentNode("ol", resolve_lists(block)))
+                parent_html_node.children.append(ParentNode("ol", resolve_ordered_lists(block)))
             case BlockType.PARAGRAPH:
                 parent_html_node.children.append(ParentNode("p", text_to_children(block)))
             case _:
                 raise Exception("Invalid BlockType")
     
     return parent_html_node
+
+
+def extract_title(markdown):
+    header = ""
+    for block in markdown_to_blocks(markdown):
+        if block_to_block_type(block) == BlockType.HEADING:
+            header = block
+            size = header_size(header)
+            return (header[size:]).strip()
+    if header == "":
+        raise Exception("No Header Found")
+    
+
+def generate_page(from_path, template_path, dest_path):
+    print(f"Generating page from {from_path} to {dest_path} using {template_path}")
+    with open(from_path) as file:
+        from_path_content = file.read()
+    
+    with open(template_path) as file2:
+        template_path_content = file2.read()
+
+    title = extract_title(from_path_content)
+    content = markdown_to_html_node(from_path_content)
+    content = content.to_html()
+    print(content)
+
+    template_path_content = template_path_content.replace(r"{{ Title }}", title).replace(r"{{ Content }}", content)
+
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+
+    with open(dest_path, "w") as file3:
+        file3.write(template_path_content)
+
+
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+    if os.path.exists(dir_path_content) and not os.path.isfile(dir_path_content):
+        if not os.path.exists(dest_dir_path):
+            os.mkdir(dest_dir_path)
+        for file_or_folder in os.listdir(dir_path_content):
+            if not os.path.isfile(os.path.join(dir_path_content, file_or_folder)):
+                os.mkdir(os.path.join(dest_dir_path, file_or_folder))
+                generate_pages_recursive(os.path.join(dir_path_content, file_or_folder), template_path, os.path.join(dest_dir_path, file_or_folder))
+            else:
+                if file_or_folder == "index.md":
+                    generate_page(os.path.join(dir_path_content, file_or_folder), template_path, os.path.join(dest_dir_path, f'{file_or_folder[:-3]}.html'))
+
+    else:
+        if file_or_folder == "index.md":
+            generate_page(os.path.join(dir_path_content), template_path, os.path.join(f'{dest_dir_path[:-3]}.html'))
