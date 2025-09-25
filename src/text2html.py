@@ -223,7 +223,7 @@ def extract_title(markdown):
         raise Exception("No Header Found")
     
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
     with open(from_path) as file:
         from_path_content = file.read()
@@ -236,7 +236,7 @@ def generate_page(from_path, template_path, dest_path):
     content = content.to_html()
     print(content)
 
-    template_path_content = template_path_content.replace(r"{{ Title }}", title).replace(r"{{ Content }}", content)
+    template_path_content = template_path_content.replace(r"{{ Title }}", title).replace(r"{{ Content }}", content).replace(r'href="/', fr'href="{basepath}').replace(r'src="/', fr'src="{basepath}')
 
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
@@ -244,17 +244,17 @@ def generate_page(from_path, template_path, dest_path):
         file3.write(template_path_content)
 
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     if os.path.exists(dir_path_content) and not os.path.isfile(dir_path_content):
         if not os.path.exists(dest_dir_path):
             os.mkdir(dest_dir_path)
         for file_or_folder in os.listdir(dir_path_content):
             if not os.path.isfile(os.path.join(dir_path_content, file_or_folder)):
                 os.mkdir(os.path.join(dest_dir_path, file_or_folder))
-                generate_pages_recursive(os.path.join(dir_path_content, file_or_folder), template_path, os.path.join(dest_dir_path, file_or_folder))
+                generate_pages_recursive(os.path.join(dir_path_content, file_or_folder), template_path, os.path.join(dest_dir_path, file_or_folder), basepath)
             else:
                 if file_or_folder == "index.md":
-                    generate_page(os.path.join(dir_path_content, file_or_folder), template_path, os.path.join(dest_dir_path, f'{file_or_folder[:-3]}.html'))
+                    generate_page(os.path.join(dir_path_content, file_or_folder), template_path, os.path.join(dest_dir_path, f'{file_or_folder[:-3]}.html'), basepath)
 
     else:
         if file_or_folder == "index.md":
